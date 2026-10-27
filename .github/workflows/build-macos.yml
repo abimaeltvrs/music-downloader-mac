@@ -1,1 +1,64 @@
 
+name: Build TavaresMusic macOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Mac - ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: Intel
+            runner: macos-15-intel
+          - arch: AppleSilicon
+            runner: macos-15
+
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar FFmpeg
+        run: |
+          brew install ffmpeg
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Compilar aplicativo
+        run: |
+          pyinstaller --noconfirm --clean --windowed \
+            --name "TavaresMusic Studio Pro" \
+            --collect-all customtkinter \
+            main.py
+
+      - name: Criar DMG
+        run: |
+          mkdir -p dmg
+          cp -R "dist/TavaresMusic Studio Pro.app" dmg/
+          hdiutil create \
+            -volname "TavaresMusic Studio Pro" \
+            -srcfolder dmg \
+            -ov \
+            -format UDZO \
+            "TavaresMusic-${{ matrix.arch }}.dmg"
+
+      - name: Disponibilizar instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: TavaresMusic-Mac-${{ matrix.arch }}
+          path: TavaresMusic-${{ matrix.arch }}.dmg
